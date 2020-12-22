@@ -70,7 +70,7 @@ File root;
 
 //global variable
 long lastSave;
-long saveDelay=1000;
+long saveDelay=2000;
 
 void setup() {
   Serial.begin(115200);
@@ -102,8 +102,9 @@ void setup() {
   root = SD.open("/");
   printDirectory(root, 0);
   Serial.println("done!");
-  
   root = SD.open("test.txt", FILE_WRITE);
+  root.println("start new record");
+  root.close();
   lastSave = millis();
 }
 
@@ -111,11 +112,23 @@ void loop() {
   //read all the pixels
   amg.readPixels(pixels);
   if((millis()-lastSave)>=saveDelay){
-    for(int j=0; j<AMG88xx_PIXEL_ARRAY_SIZE; j++){
-      root.print(pixels[j]);
-      root.print(",");
+    root = SD.open("test.txt", FILE_WRITE);
+    if(root){
+       for(int j=1; j<=AMG88xx_PIXEL_ARRAY_SIZE; j++){
+        root.print(String(pixels[j-1]));
+        root.print(",");
+        if(j % 8 == 0){
+          root.println("");
+        }
+      }
+      root.println("");
+      root.close();
+      Serial.println("SD Saved");
+      lastSave = millis();
     }
-    root.println("");
+    else{
+      Serial.println("SD save failed");
+    }
   }
   
   
