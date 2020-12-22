@@ -68,6 +68,10 @@ uint16_t displayPixelWidth, displayPixelHeight;
 //global variable of SD card
 File root;
 
+//global variable
+long lastSave;
+long saveDelay=1000;
+
 void setup() {
   Serial.begin(115200);
 
@@ -99,12 +103,22 @@ void setup() {
   printDirectory(root, 0);
   Serial.println("done!");
   
+  root = SD.open("test.txt", FILE_WRITE);
+  lastSave = millis();
 }
 
 void loop() {
   //read all the pixels
   amg.readPixels(pixels);
-
+  if((millis()-lastSave)>=saveDelay){
+    for(int j=0; j<AMG88xx_PIXEL_ARRAY_SIZE; j++){
+      root.print(pixels[j]);
+      root.print(",");
+    }
+    root.println("");
+  }
+  
+  
   for(int i=0; i<AMG88xx_PIXEL_ARRAY_SIZE; i++){
     uint8_t colorIndex = map(pixels[i], MINTEMP, MAXTEMP, 0, 255);
     colorIndex = constrain(colorIndex, 0, 255);
