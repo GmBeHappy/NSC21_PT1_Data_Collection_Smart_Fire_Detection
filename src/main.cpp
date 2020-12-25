@@ -6,6 +6,7 @@
 #include <Adafruit_AMG88xx.h>
 #include <SPI.h>
 #include <mySD.h>
+#include "BluetoothSerial.h"
 
 //define pins of TFT screen
 #define TFT_CS     5
@@ -57,7 +58,11 @@ const uint16_t camColors[] = {0x480F,
 0xF1E0,0xF1C0,0xF1A0,0xF180,0xF160,0xF140,0xF100,0xF0E0,0xF0C0,0xF0A0,
 0xF080,0xF060,0xF040,0xF020,0xF800,};
 
+// initial tft display
 Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RST);
+
+// initial Bluetooth
+BluetoothSerial ESP_BT;
 
 //global variable of TFT Display
 Adafruit_AMG88xx amg;
@@ -68,6 +73,9 @@ uint16_t displayPixelWidth, displayPixelHeight;
 //global variable of SD card
 File root;
 
+//global variable of bluetooth
+int incoming;
+
 //global variable
 long lastSave;
 long saveDelay=2000;
@@ -75,13 +83,15 @@ long saveDelay=2000;
 void setup() {
   Serial.begin(115200);
 
+  ESP_BT.begin("ESP32_NSC21_PT1"); 
+
   tft.initR(INITR_144GREENTAB);   // initialize a ST7735S chip, black tab
   tft.fillScreen(ST7735_BLACK);
 
   displayPixelWidth = tft.width() / 8;
   displayPixelHeight = tft.height() / 8;
 
-  //tft.setRotation(3);
+  tft.setRotation(3);
     
   bool status;
     
@@ -111,32 +121,38 @@ void setup() {
 void loop() {
   //read all the pixels
   amg.readPixels(pixels);
-  if((millis()-lastSave)>=saveDelay){
-    root = SD.open("test.txt", FILE_WRITE);
-    if(root){
-       for(int j=1; j<=AMG88xx_PIXEL_ARRAY_SIZE; j++){
-        root.print(String(pixels[j-1]));
-        root.print(",");
-        if(j % 8 == 0){
+
+  if (ESP_BT.available()) {
+    incoming = ESP_BT.read(); 
+    if(incoming==49){
+      if((millis()-lastSave)>=saveDelay){
+        root = SD.open("test.txt", FILE_WRITE);
+        if(root){
+          for(int j=1; j<=AMG88xx_PIXEL_ARRAY_SIZE; j++){
+            root.print(String(pixels[j-1]));
+            root.print(",");
+            if(j % 8 == 0){
+              root.println("");
+            }
+          }
           root.println("");
+          root.close();
+          Serial.println("SD Saved");
+          ESP_BT.println("SD Saved");
+          lastSave = millis();
+        }
+        else{
+          Serial.println("SD save failed");
+          ESP_BT.println("SD save failed");
         }
       }
-      root.println("");
-      root.close();
-      Serial.println("SD Saved");
-      lastSave = millis();
-    }
-    else{
-      Serial.println("SD save failed");
     }
   }
   
-  
+  // Display draw
   for(int i=0; i<AMG88xx_PIXEL_ARRAY_SIZE; i++){
     uint8_t colorIndex = map(pixels[i], MINTEMP, MAXTEMP, 0, 255);
     colorIndex = constrain(colorIndex, 0, 255);
-
-    //draw the pixels!
     tft.fillRect(displayPixelHeight * floor(i / 8), displayPixelWidth * (i % 8),
         displayPixelHeight, displayPixelWidth, camColors[colorIndex]);
   }
